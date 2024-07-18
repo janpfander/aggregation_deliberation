@@ -1,0 +1,29 @@
+# R stuff
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Ignore all elements in subfolders called "data"
+**/data/*
+
+# Ignore all elements in subfolders called "data"
+/materials/*
+
+# Ignore Word files
+*.doc
+*.docx
+
+# Ignore DS store files
+.DS_Store
+
+# Ignore HTML files
+*.html
+
+# Ignore Keynote files
+*.key
+
+# Ingore other files
+*.aux
+*.toc
+*.tex

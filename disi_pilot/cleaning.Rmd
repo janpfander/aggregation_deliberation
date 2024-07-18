@@ -1,0 +1,116 @@
+---
+title: "Cleaning DISI pilot"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r packages, message=FALSE}
+library(tidyverse)     # create plots with ggplot, manipulate data, etc.
+library(broom.mixed)   # convert regression models into nice tables
+library(modelsummary)  # combine multiple regression models into a single table
+library(lme4)          # model specification / estimation 
+library(lmerTest)      # provides p-values in the output
+library(ggpubr)        # stile feature of ggplot
+library(gghalves)      # do special plots in ggplot
+library(kableExtra)    # for tables
+```
+
+## Import data
+```{r import, message=FALSE}
+d <- read_csv("data/test.csv")
+names(d)
+```
+
+```{r}
+# inspect
+head(d) # you can also use View(d)
+# delete first two rows
+d <- d %>% 
+  slice(3: nrow(.)) 
+```
+
+## Clean and re-shape data
+
+```{r}
+# check all names and their order
+names(d)
+```
+
+For the "spinning" question, there are several values, because responses were recorde using a matrix.
+
+```{r}
+# Create new column 'spinning_initial' containing non-NA value
+d <- d %>%
+  mutate(spinning_initial = coalesce(spinning_initial_1, spinning_initial_2, spinning_initial_3)) %>% 
+  select(-starts_with("spinning_initial_"))
+
+# test
+# test <- d %>%
+#   mutate(spinning_initial = coalesce(spinning_initial_1, spinning_initial_2, spinning_initial_3)) %>% 
+#   select(starts_with("spinning_initial"))
+# View(test)
+```
+
+```{r}
+# Remove the last "_" and the following digits
+colnames(d) <- str_replace(colnames(d), "_\\d+$", "")
+
+# check
+names(d)
+```
+
+```{r}
+# Function to extract numbers from a string if present
+extract_numbers <- function(string_var) {
+  # Use ifelse to conditionally apply str_extract and as.numeric
+  ifelse(str_detect(string_var, "\\d"), 
+         as.numeric(str_extract(string_var, "\\d+")), 
+         string_var)
+}
+
+
+# test the function
+# d %>%
+#   mutate(across(contains("initial"), ~extract_numbers(.), .names = "{.col}_num")) %>%
+#   select(eiffel_initial, eiffel_initial_num)
+
+# clean and re-shape
+d_wide <- d %>% 
+  # add an easy to read participant identifier
+  mutate(id = 1:nrow(.)) %>%
+  mutate(
+    # extract numbers from some open text entries
+    across(contains("initial"), ~extract_numbers(.)
+                ), 
+    # code all as character to be able to pivot longer below 
+         across(contains("initial"), ~as.character(.)
+                )
+         ) %>%
+  # Reorder columns with id as the first column
+  select(id, everything())
+```
+
+### Make long format data
+
+```{r}
+d_long <- d_wide %>% 
+  # bring to long format
+  pivot_longer(cols = c(ends_with("initial"), ends_with("alone"), ends_with("discuss"), ends_with("crowd")), 
+               names_to = "task_condition", values_to = "answer") %>% 
+  # separate subject (e.g. water) and question (e.g. acceptance)
+  separate_wider_delim(task_condition, "_", names = c("task", "condition")
+                       ) %>%
+  pivot_wider(names_from = condition, values_from = answer)
+```
+
+## Export data
+
+```{r}
+# wide format
+write_csv(d_wide, "data/cleaned_wide.csv")
+
+# long format
+write_csv(d_long, "data/cleaned_long.csv")
+```
+
